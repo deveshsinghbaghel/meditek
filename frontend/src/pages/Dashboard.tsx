@@ -6,15 +6,59 @@ import { OrganStatusCard } from '../components/dashboard/OrganStatusCard';
 import { TimelineCard } from '../components/dashboard/TimelineCard';
 import { VitalsCard } from '../components/dashboard/VitalsCard';
 import { PatientStatusCard, PatientStatus } from '../components/dashboard/PatientStatusCard';
+import { useHealthStore } from '../store';
+import { VitalReading } from '../types/health';
 
-const DATA_STREAM = [
-  { HR: 78,  SpO2: 98, Temp: 36.8, Steps: 1240, Fall: 0, Motion: 'Walking', Battery: 82 },
-  { HR: 79,  SpO2: 97, Temp: 36.9, Steps: 1252, Fall: 0, Motion: 'Walking', Battery: 81 },
-  { HR: 76,  SpO2: 98, Temp: 36.7, Steps: 1260, Fall: 0, Motion: 'Idle',    Battery: 81 },
-  { HR: 118, SpO2: 94, Temp: 37.2, Steps: 1265, Fall: 1, Motion: 'Impact',  Battery: 80 },
-];
+const EMPTY_VITALS: VitalReading = {
+  HR: 0,
+  SpO2: 0,
+  Temp: 0,
+  Fall: 0,
+  Motion: 'Waiting',
+};
 
-function computeStatus(d: typeof DATA_STREAM[0]): PatientStatus {
+const STALE_READING_MS = 3000;
+const GRAPH_WINDOW_MS = 30000;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function smoothSeries(series: number[]) {
+  return series.map((point, index) => {
+    if (index === 0 || index === series.length - 1) return point;
+    return (series[index - 1] + point * 2 + series[index + 1]) / 4;
+  });
+}
+
+function buildSmoothPath(points: { x: number; y: number }[]) {
+  if (!points.length) return '';
+  if (points.length === 1) return `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+
+  let path = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const current = points[i];
+    const next = points[i + 1];
+    const midX = (current.x + next.x) / 2;
+    path += ` Q ${current.x.toFixed(2)} ${current.y.toFixed(2)} ${midX.toFixed(2)} ${((current.y + next.y) / 2).toFixed(2)}`;
+    path += ` T ${next.x.toFixed(2)} ${next.y.toFixed(2)}`;
+  }
+  return path;
+}
+
+function buildTrendPath(series: number[], width: number, height: number, min: number, max: number) {
+  if (!series.length) return '';
+  const range = max - min || 1;
+  const points = smoothSeries(series).map((point, index) => {
+      const x = (index / Math.max(series.length - 1, 1)) * width;
+      const y = height - ((clamp(point, min, max) - min) / range) * height;
+      return { x, y };
+    });
+  return buildSmoothPath(points);
+}
+
+function computeStatus(d: VitalReading): PatientStatus {
+  if (d.Motion === 'Waiting') return 'Idle';
   if (d.Fall === 1 || d.Motion === 'Impact') return 'Fallen';
   if (d.HR > 110 || d.SpO2 < 95 || d.Temp > 37.5) return 'Emergency';
   if (d.Motion === 'Walking') return 'Walking';
@@ -36,37 +80,36 @@ function tempColor(v: number) {
 }
 
 export function DashboardPage() {
-  const [streamIndex, setStreamIndex] = useState(0);
-  const [current, setCurrent] = useState(DATA_STREAM[0]);
-  const [spo2History, setSpo2History] = useState<number[]>([98, 98, 98, 98]);
-  const [tempHistory, setTempHistory] = useState<number[]>([36.8, 36.8, 36.8, 36.8]);
+  const currentVitals = useHealthStore((state) => state.currentVitals);
+  const historicalData = useHealthStore((state) => state.historicalData);
+  const connectionState = useHealthStore((state) => state.connectionState);
+
+  const [clock, setClock] = useState('');
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const tick = () => {
+      setClock(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setNow(Date.now());
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const latestTimestamp = currentVitals ? Date.parse(currentVitals.timestamp) : 0;
+  const hasFreshReading = latestTimestamp > 0 && now - latestTimestamp <= STALE_READING_MS;
+  const current = hasFreshReading ? currentVitals?.data ?? EMPTY_VITALS : EMPTY_VITALS;
+  const graphHistory = historicalData.filter((item) => now - Date.parse(item.timestamp) <= GRAPH_WINDOW_MS);
+  const graphReadings = hasFreshReading ? graphHistory : [...graphHistory, { timestamp: new Date(now).toISOString(), data: EMPTY_VITALS }];
+  const hrHistory = graphReadings.map((item) => item.data.HR).slice(-30);
+  const spo2History = graphReadings.map((item) => item.data.SpO2).slice(-30);
+  const tempHistory = graphReadings.map((item) => item.data.Temp).slice(-30);
 
   const heartRate = current.HR;
   const spo2 = current.SpO2;
   const temp = current.Temp;
   const patientStatus = computeStatus(current);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setStreamIndex(i => (i + 1) % DATA_STREAM.length);
-    }, 4000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    const row = DATA_STREAM[streamIndex];
-    setCurrent(row);
-    setSpo2History(h => [...h.slice(1), row.SpO2]);
-    setTempHistory(h => [...h.slice(1), row.Temp]);
-  }, [streamIndex]);
-
-  const [clock, setClock] = useState('');
-  useEffect(() => {
-    const tick = () => setClock(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
+  const hrTrend = buildTrendPath(hrHistory.length ? hrHistory : [0], 520, 110, 40, 140);
 
   return (
     <main className="replica-shell">
@@ -81,7 +124,7 @@ export function DashboardPage() {
           </div>
           <div className="topbar-status">
             <span className="live-dot" />
-            <span className="live-label">Live</span>
+            <span className="live-label">{connectionState === 'live' ? 'Live' : connectionState}</span>
             {clock && <span className="live-time">{clock}</span>}
           </div>
         </header>
@@ -91,7 +134,6 @@ export function DashboardPage() {
             status={patientStatus}
             motion={current.Motion}
             fall={current.Fall}
-            battery={current.Battery}
           />
 
           <motion.section
@@ -110,11 +152,15 @@ export function DashboardPage() {
                   <span className="ecg-hr-num">{heartRate}</span>
                   <span className="ecg-hr-unit">bpm</span>
                 </div>
+                <span className="ecg-range">live trend, 40-140 bpm</span>
               </div>
               <div className="ecg-wave-wrap">
-                <svg viewBox="0 0 320 48" className="ecg-wave" preserveAspectRatio="none" aria-hidden="true">
-                  <polyline points="0,30 20,30 28,10 34,38 42,34 50,30 70,30 78,10 84,38 92,34 100,30 120,30 128,10 134,38 142,34 150,30 170,30 178,10 184,38 192,34 200,30 220,30 228,10 234,38 242,34 250,30 270,30 278,10 284,38 292,34 300,30 320,30" />
-                  <polyline points="0,30 20,30 28,10 34,38 42,34 50,30 70,30 78,10 84,38 92,34 100,30 120,30 128,10 134,38 142,34 150,30 170,30 178,10 184,38 192,34 200,30 220,30 228,10 234,38 242,34 250,30 270,30 278,10 284,38 292,34 300,30 320,30" />
+                <svg viewBox="0 0 520 110" className="ecg-wave" preserveAspectRatio="none" aria-label="Heart rate trend">
+                  <rect x="0" y="22" width="520" height="44" className="ecg-normal-band" />
+                  <line x1="0" y1="22" x2="520" y2="22" className="ecg-grid" />
+                  <line x1="0" y1="55" x2="520" y2="55" className="ecg-grid" />
+                  <line x1="0" y1="88" x2="520" y2="88" className="ecg-grid" />
+                  <path d={hrTrend} className="ecg-trend" />
                 </svg>
               </div>
             </div>
@@ -143,7 +189,11 @@ export function DashboardPage() {
               unit="%"
               accent={spo2Color(spo2)}
               icon={<Droplets size={16} />}
-              series={spo2History}
+              series={spo2History.length ? spo2History : [0]}
+              min={85}
+              max={100}
+              normalMin={95}
+              normalMax={100}
             />
             <VitalsCard
               label="Temperature"
@@ -152,7 +202,11 @@ export function DashboardPage() {
               unit="°C"
               accent={tempColor(temp)}
               icon={<Thermometer size={16} />}
-              series={tempHistory}
+              series={tempHistory.length ? tempHistory : [0]}
+              min={34}
+              max={40}
+              normalMin={36.1}
+              normalMax={37.2}
             />
           </div>
 

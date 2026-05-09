@@ -1,8 +1,12 @@
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { LayoutDashboard, FileText } from 'lucide-react';
+import { useHealthStore } from '../../store';
+import { useHealthData } from '../../hooks/useHealthData';
 
 export function Layout() {
   const location = useLocation();
+  const connectionState = useHealthStore((state) => state.connectionState);
+  useHealthData();
 
   return (
     <div className="app-layout">
@@ -35,7 +39,7 @@ export function Layout() {
 
         <div className="sidebar__footer">
           <span className="sidebar__live-dot" />
-          <span className="sidebar__live-label">Live</span>
+          <span className="sidebar__live-label">{connectionState === 'live' ? 'Live' : connectionState}</span>
         </div>
       </aside>
 

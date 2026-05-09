@@ -102,7 +102,7 @@ body { margin: 0; background: var(--bg-canvas); }
 .ps-badge { font-size: 32px; font-weight: 600; line-height: 1.1; }
 .ps-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
 .ps-pills {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px;
   margin-top: auto; padding-top: 12px;
 }
 .ps-pill {
@@ -127,36 +127,44 @@ body { margin: 0; background: var(--bg-canvas); }
   grid-column: 2 / 5; grid-row: 2 / 4;
   background: linear-gradient(180deg, #FFF5F3 0%, #FFFFFF 60%);
   display: flex; flex-direction: column;
+  min-height: 300px;
+  overflow: hidden;
 }
 .hero-heart-card__art {
   flex: 1;
   display: flex; align-items: center; justify-content: center;
+  opacity: 0.42;
 }
 .hero-heart-card__art .medical-illustration-frame { width: 100%; height: 100%; }
 .hero-heart-card .medical-illustration {
   width: 280px; object-fit: contain; display: block;
 }
 .hero-heart-card__ecg {
-  position: absolute; bottom: 20px; left: 24px; right: 24px;
-  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  position: absolute; bottom: 18px; left: 24px; right: 24px;
+  display: grid; grid-template-columns: 150px 1fr; align-items: end; gap: 18px;
 }
 .ecg-labels { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
 .ecg-title { font-size: 16px; font-weight: 500; color: var(--text); }
 .ecg-hr-row { display: flex; align-items: baseline; gap: 4px; }
 .ecg-hr-num { font-size: 28px; font-weight: 600; color: var(--text); line-height: 1; }
 .ecg-hr-unit { font-size: 14px; color: var(--text-muted); }
-.ecg-wave-wrap { flex: 1; overflow: hidden; height: 48px; display: flex; align-items: center; }
+.ecg-range { font-size: 10px; color: var(--text-dim); margin-top: 4px; }
+.ecg-wave-wrap { overflow: hidden; height: 110px; display: flex; align-items: center; }
 .ecg-wave {
-  width: 200%; height: 48px;
-  animation: scrollECG 3s linear infinite;
+  width: 100%; height: 110px;
 }
-.ecg-wave polyline {
+.ecg-grid {
+  stroke: rgba(216, 90, 48, 0.14);
+  stroke-width: 1;
+}
+.ecg-normal-band {
+  fill: rgba(29, 158, 117, 0.08);
+}
+.ecg-trend {
   fill: none; stroke: var(--coral);
-  stroke-width: 1.5px; stroke-linecap: round; stroke-linejoin: round;
-}
-@keyframes scrollECG {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  stroke-width: 3;
+  stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 4px 8px rgba(216, 90, 48, 0.18));
 }
 
 .bottom-organs-row {
@@ -209,11 +217,18 @@ body { margin: 0; background: var(--bg-canvas); }
 .vital-card__big-num { display: flex; align-items: baseline; gap: 4px; height: 38px; }
 .vital-card__big-num strong { font-size: 28px; font-weight: 600; line-height: 1; }
 .vital-card__big-num span { font-size: 13px; color: var(--text-muted); }
-.vital-card__chart { flex: 1; overflow: hidden; max-height: 55px; }
-.vital-card__chart svg { width: 100%; height: 55px; display: block; }
+.vital-card__chart { position: relative; flex: 1; overflow: hidden; min-height: 64px; }
+.vital-card__chart svg { width: calc(100% - 24px); height: 64px; display: block; }
 .vital-card__chart path {
-  fill: none; stroke-width: 1.5;
+  fill: none; stroke-width: 2.2;
   stroke-linecap: round; stroke-linejoin: round;
+}
+.vital-card__grid { stroke: rgba(28, 28, 28, 0.08); stroke-width: 1; }
+.vital-card__normal-band { fill: rgba(29, 158, 117, 0.08); }
+.vital-card__scale {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column; justify-content: space-between;
+  font-size: 9px; color: var(--text-dim); line-height: 1;
 }
 
 .timeline-card {
@@ -277,6 +292,9 @@ body { margin: 0; background: var(--bg-canvas); }
   .replica-grid  { grid-template-columns: 1fr; }
   .bottom-stats-row { grid-template-columns: 1fr; }
   .topbar-title { display: none; }
+  .hero-heart-card__ecg { grid-template-columns: 1fr; gap: 8px; }
+  .ecg-wave-wrap { height: 92px; }
+  .ecg-wave { height: 92px; }
 }
 
 /* ─── App Layout (sidebar + main) ─────────────────────────── */

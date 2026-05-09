@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Activity, AlertTriangle, BatteryLow, Footprints } from 'lucide-react';
+import { AlertTriangle, Footprints } from 'lucide-react';
 
 export type PatientStatus = 'Walking' | 'Idle' | 'Fallen' | 'Emergency' | 'Recovery';
 
@@ -7,7 +7,6 @@ interface PatientStatusCardProps {
   status: PatientStatus;
   motion: string;
   fall: number;
-  battery: number;
 }
 
 const STATUS_COLORS: Record<PatientStatus, string> = {
@@ -26,9 +25,7 @@ const STATUS_SUB: Record<PatientStatus, string> = {
   Recovery:  'Post-activity rest phase',
 };
 
-const BATTERY_COLOR = (b: number) => b > 50 ? '#1D9E75' : b > 20 ? '#BA7517' : '#D85A30';
-
-export function PatientStatusCard({ status, motion: motionVal, fall, battery }: PatientStatusCardProps) {
+export function PatientStatusCard({ status, motion: motionVal, fall }: PatientStatusCardProps) {
   const alertVisible = status === 'Fallen' || status === 'Emergency';
   const accentColor = STATUS_COLORS[status];
 
@@ -58,13 +55,6 @@ export function PatientStatusCard({ status, motion: motionVal, fall, battery }: 
           <span className="ps-pill-label">FALL</span>
           <span className="ps-pill-value" style={{ color: fall ? '#D85A30' : '#1D9E75' }}>
             {fall ? 'Detected' : 'None'}
-          </span>
-        </div>
-        <div className="ps-pill">
-          <BatteryLow size={14} />
-          <span className="ps-pill-label">BATTERY</span>
-          <span className="ps-pill-value" style={{ color: BATTERY_COLOR(battery) }}>
-            {battery}%
           </span>
         </div>
       </div>
