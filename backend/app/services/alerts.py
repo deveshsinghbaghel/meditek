@@ -59,17 +59,6 @@ def evaluate_alerts(vitals: VitalReading) -> list[AlertItem]:
                 timestamp=now,
             )
         )
-    if vitals.battery <= 25:
-        alerts.append(
-            AlertItem(
-                id=str(uuid4()),
-                type="LOW_BATTERY",
-                severity="Warning",
-                message="Wearable battery is running low.",
-                timestamp=now,
-            )
-        )
-
     return alerts
 
 

@@ -31,11 +31,11 @@ class ReportGenerator:
     def record(self, vitals: dict[str, Any]) -> None:
         self._buffer.append({
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "hr": vitals.get("HR") or vitals.get("heart_rate"),
-            "spo2": vitals.get("SpO2") or vitals.get("spo2"),
-            "temp": vitals.get("Temp") or vitals.get("temperature"),
-            "fall": vitals.get("Fall") or vitals.get("fall_detected"),
-            "motion": vitals.get("Motion") or vitals.get("motion"),
+            "hr": _first_present(vitals, "HR", "heart_rate"),
+            "spo2": _first_present(vitals, "SpO2", "spo2"),
+            "temp": _first_present(vitals, "Temp", "temperature"),
+            "fall": _first_present(vitals, "Fall", "fall_detected"),
+            "motion": _first_present(vitals, "Motion", "motion"),
         })
 
     async def generate(self) -> dict[str, Any] | None:
@@ -70,6 +70,13 @@ def _build_batch(buffer: list[dict[str, Any]]) -> dict[str, Any]:
         "motion_data": {"timestamps": ts, "values": [r["motion"] for r in buffer]},
         "batch_size": len(buffer),
     }
+
+
+def _first_present(data: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in data:
+            return data[key]
+    return None
 
 
 def _save_batch(batch: dict[str, Any]) -> None:

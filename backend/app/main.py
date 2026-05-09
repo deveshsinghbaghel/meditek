@@ -6,7 +6,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as api_router
-from app.api.websocket import router as websocket_router
 from app.core.config import settings
 from app.services.report_generator import report_generator
 from app.services.runtime import runtime
@@ -38,7 +37,6 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api")
-app.include_router(websocket_router)
 
 
 @app.get("/api/ping")

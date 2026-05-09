@@ -10,10 +10,8 @@ class VitalReading(BaseModel):
     heart_rate: int = Field(alias="HR")
     spo2: int = Field(alias="SpO2")
     temperature: float = Field(alias="Temp")
-    steps: int = Field(alias="Steps", default=0)
     fall_detected: int = Field(alias="Fall")
     motion: str = Field(alias="Motion")
-    battery: int = Field(alias="Battery", default=0)
 
 
 class AlertItem(BaseModel):

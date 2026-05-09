@@ -1,151 +1,41 @@
-# MediTrack+ — Agent Instructions
+# MediTrack+ Agent Notes
 
-## Project Overview
+## Repo Shape
 
-MediTrack+ is a real-time healthcare monitoring system:
-- **Backend**: FastAPI (Python) on `localhost:8000`. ESP32 sends serial data → backend → Supabase
-- **Frontend**: React 18 + Vite + TypeScript on `localhost:5173`, proxied via Vite to backend
-- **Database**: Supabase (Postgres) for storing vitals batches and generated reports
-- **AI Reports**: Gemini 1.5 Flash generates health reports from 20-second data batches
+- Work from `C:\mysore-hackathon\MediTrack-`; the parent directory is a separate git repo that only sees `MediTrack-/` as untracked.
+- `backend/` is a FastAPI app; import paths assume commands run from `backend`, where `app.main:app` is importable.
+- `frontend/` is a React 18 + Vite + TypeScript app; there is no workspace-level package manager config.
+- No CI, lint, formatter, or test config is present. Verified checks are manual backend smoke endpoints and `npm run build` for the frontend.
 
-## Project Structure
+## Commands
 
-```
-D:\mysore-hackathon\
-├── backend/                    # FastAPI backend (run from this dir)
-│   ├── app/
-│   │   ├── api/routes.py       # REST endpoints (/api/vitals, /api/reports, etc.)
-│   │   ├── api/websocket.py    # WebSocket stream (/ws/vitals)
-│   │   ├── core/config.py      # Pydantic Settings (.env config)
-│   │   ├── data_sources/       # simulator.py (fake data), serial_port.py (ESP32)
-│   │   ├── schemas/health.py   # Pydantic models (VitalReading, VitalEnvelope, etc.)
-│   │   └── services/
-│   │       ├── supabase_client.py  # Custom httpx REST client (NO supabase SDK)
-│   │       ├── report_generator.py # 20-sec batching → Gemini/fallback → Supabase
-│   │       ├── gemini_service.py    # Gemini 1.5 Flash + rule-based fallback
-│   │       ├── runtime.py           # MonitorRuntime streams data, calls report_generator
-│   │       ├── ai_analysis.py      # generate_insight() rule-based
-│   │       ├── alerts.py           # evaluate_alerts(), derive_status()
-│   │       └── parser.py           # parse_raw_vitals()
-│   ├── .env                    # Credentials (NEVER commit)
-│   └── requirements.txt
-└── frontend/                   # React/Vite/TypeScript frontend
-    └── src/
-        ├── App.tsx             # React Router (Layout wraps all routes)
-        ├── pages/
-        │   ├── Dashboard.tsx    # Home page (local DATA_STREAM simulation)
-        │   ├── Reports.tsx     # Report grid + Generate button with 20s countdown
-        │   └── ReportView.tsx  # Single report detail page
-        ├── components/layout/   # Layout.tsx (200px sidebar + Outlet)
-        ├── hooks/
-        │   ├── useReports.ts   # fetchReports(), generate(), secondsUntilReady
-        │   └── useHealthData.ts # No-op stub (backend polling not connected)
-        ├── services/api.ts     # REST fetch helpers
-        ├── store/index.ts      # Zustand store
-        ├── types/health.ts     # TypeScript types (VitalReading, VitalEnvelope, etc.)
-        └── styles.css          # All CSS (dashboard + sidebar + reports)
-```
+- Backend install from `backend/`: use Python 3.12 or 3.10, not Python 3.14 (`pydantic-core` may build from source and fail). Current local venv is `.venv/`; install with `.venv\Scripts\python.exe -m pip install -r requirements.txt`.
+- Backend dev server from `backend/`: `.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000`.
+- Backend smoke checks after startup: `/api/ping`, `/api/reports/status`, `/api/vitals/history`, `/api/reports/history`.
+- Frontend install from `frontend/`: `npm install` because this repo uses `package-lock.json` and no pnpm/yarn config.
+- Frontend dev server from `frontend/`: `npm run dev` on port `5173`.
+- Frontend verification from `frontend/`: `npm run build`; this runs `tsc -b && vite build`.
+- Docker path: from repo root, `docker compose up --build` builds `backend/` and runs frontend with Node 22 Alpine, `npm install`, then Vite on `0.0.0.0:5173`.
 
-## How to Run
+## Backend Facts
 
-### Backend
-```bash
-cd D:\mysore-hackathon\backend
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
-- Run from `D:\mysore-hackathon\backend` directory specifically — Python may resolve `app` from a different directory (e.g., `D:\Atlas\backend`) if run from parent dirs
-- Backend lifespan: starts `runtime` + `report_generator`, runs migration thread
+- `app/main.py` registers REST routes under `/api`; lifespan runs Supabase migrations, then starts `runtime` and `report_generator`.
+- Settings load from `backend/.env` via Pydantic `SettingsConfigDict(env_file=".env")`; running uvicorn outside `backend` can miss these env values.
+- Required secrets may include `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_KEY`, and `GEMINI_API_KEY`; never commit `.env`.
+- `settings.data_source` defaults to `simulator`; set `DATA_SOURCE=serial` for backend serial reads, or `DATA_SOURCE=manual` when an external script posts readings to `/api/vitals/ingest`. `SERIAL_PORT=auto` scans USB serial devices, otherwise use an explicit port like `COM3`.
+- Use the local `app.services.supabase_client.table()` helper for reports and batches. It is a custom synchronous `httpx.Client` REST wrapper; do not assume the installed `supabase` package is used by current code.
+- Migrations use Supabase Management API in `app/services/migrations.py` and require `SUPABASE_SERVICE_KEY`; missing keys skip migration instead of failing startup.
+- Vitals stream every `STREAM_INTERVAL_SECONDS` into `runtime.history`, alerts, and the report buffer; the frontend polls REST endpoints instead of using WebSockets.
+- Serial input accepts one newline-delimited reading as either JSON or comma-separated `key:value` fields with aliases `HR`, `SpO2`, `Temp`, `Fall`, and `Motion`.
+- Reports are generated by `POST /api/reports/generate`; `report_generator._batch_loop()` only sleeps and does not auto-generate reports.
+- Gemini uses `google.generativeai.GenerativeModel("gemini-1.5-flash")`; missing or failing `GEMINI_API_KEY` falls back to rule-based reports.
 
-### Frontend
-```bash
-cd D:\mysore-hackathon\frontend
-npm run dev
-```
-- Vite proxy: `/api` → `http://127.0.0.1:8000`, `/ws` → `ws://127.0.0.1:8000`
-- Open `http://localhost:5173`
+## Frontend Facts
 
-## Build Commands
-
-### Frontend
-```bash
-npm run dev          # Start dev server (port 5173)
-npm run build        # TypeScript check + Vite build (tsc -b && vite build)
-npm run preview      # Preview production build
-```
-
-### Backend
-```bash
-# No formal test suite. Verify manually:
-curl http://localhost:8000/api/ping
-curl http://localhost:8000/api/reports/history
-curl http://localhost:8000/api/vitals/history
-# Start with verbose output:
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --log-level debug
-```
-
-## Code Style
-
-### Python (Backend)
-- **Imports**: Always use `app.` prefixed absolute imports (e.g., `from app.core.config import settings`). Never use `from . import` relative imports inside the `app` package.
-- **Types**: Use type hints on all function signatures. Use `None` union (`str | None`) not `Optional[str]`.
-- **Async**: All I/O (HTTP, file, asyncio) must be async. Never use `time.sleep()` in async context.
-- **Classes**: Use `__slots__` for high-frequency classes (e.g., `TableProxy`, `QueryBuilder`). Use Pydantic models for all data schemas.
-- **Naming**: `snake_case` for functions/variables, `PascalCase` for classes/types. Private helpers prefixed with `_`.
-- **Error handling**: Never swallow exceptions silently in API routes. Use `try/except` with specific return types. Report generator catches internally but API should surface meaningful errors.
-- **Supabase**: DO NOT use the `supabase` Python SDK. Use the custom `httpx`-based `table()` client in `app.services.supabase_client`. Import it as: `from app.services.supabase_client import table`.
-- **Gemini**: Import as `import google.generativeai as genai`. Configure with `genai.configure(api_key=...)`. Use `genai.GenerativeModel("gemini-1.5-flash")`. Call with `await model.generate_content_async(prompt)`.
-- **No comments**: Do not add comments to code unless explicitly requested.
-
-### TypeScript (Frontend)
-- **Imports**: Use named imports. Barrel exports from `pages/Reports.tsx` (`export interface ReportSummary`).
-- **Types**: All API response types should use optional fields (`?`) with fallback defaults. Never assume a field exists — use optional chaining (`m.hr?.avg ?? '—'`).
-- **React**: Use functional components with hooks. Use `useCallback` for any function passed as a prop. Always clean up intervals/subscriptions in `useEffect` return.
-- **Styling**: CSS uses BEM-ish class names (`.report-card__header`, `.metric-tile__avg`). All styles live in `src/styles.css` — no inline styles or CSS modules.
-- **Routing**: Use React Router v7. `Layout` component renders sidebar + `<Outlet />`. No nested layouts needed.
-- **No comments**: Do not add comments to code unless explicitly requested.
-
-## Key Patterns
-
-### Supabase REST calls
-```python
-from app.services.supabase_client import table
-result = table("reports").select("id,health_score").order("generated_at", desc=True).limit(5).execute()
-```
-
-### Report Generator (20-sec batching)
-```python
-report_generator.record(vitals.model_dump())  # called from runtime._stream() every tick
-report = await report_generator.generate()     # manually trigger, returns None if buffer empty
-```
-
-### Frontend API calls
-```typescript
-const res = await fetch(`${API_BASE}/reports/history`);
-const data = await res.json();
-if (Array.isArray(data)) { setReports(data); }
-```
-
-## Critical Rules
-
-1. **NEVER commit `.env` files** — they contain `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` (service role), `SUPABASE_SERVICE_KEY`
-2. **Backend runs on user's laptop** at `localhost:8000` — always online when frontend is used
-3. **Serial port**: Backend reads from `settings.serial_port` (default `COM3`). When `settings.data_source == "serial"`, use `SerialPortReader`. Default is `FakeDataGenerator`.
-4. **No `supabase` Python SDK** — conflicts with httpx. Use the custom `table()` client only.
-5. **Port conflicts**: If port 8000 is in use, `netstat -ano | findstr :8000` to find and kill the PID.
-6. **Vite proxy**: Works only when frontend dev server is running. Backend URL must be `http://127.0.0.1:8000` (not `localhost` in some configs).
-
-## Environment Variables
-
-### Backend `.env`
-```
-SUPABASE_URL=https://xxxx.supabase.co
-SUPABASE_KEY=<service_role_jwt>
-SUPABASE_SERVICE_KEY=<pat_for_management_api>
-GEMINI_API_KEY=<google_gemini_key>
-BATCH_INTERVAL_SECONDS=20
-```
-
-### Frontend `.env` (optional)
-```
-VITE_API_BASE_URL=/api  # default, don't change unless backend runs elsewhere
-```
+- Vite proxy in `frontend/vite.config.ts` maps `/api` to `http://127.0.0.1:8000`; there is no WebSocket proxy.
+- Frontend API base defaults to `VITE_API_BASE_URL ?? '/api'`.
+- `src/App.tsx` routes `/`, `/reports`, and `/reports/:id` inside `components/layout/Layout`.
+- `components/layout/Layout.tsx` starts `useHealthData`, which polls vitals/history, alerts, and latest insight every second; `src/pages/Dashboard.tsx` reads live vitals from the Zustand store.
+- Reports UI uses backend endpoints from `src/hooks/useReports.ts`: `/reports/status`, `/reports/generate`, and `/reports/history`.
+- Global health state lives in `src/store/index.ts` with Zustand.
+- Most styling is in `src/styles.css`; `src/App.css` also exists, so check both before moving or deleting styles.

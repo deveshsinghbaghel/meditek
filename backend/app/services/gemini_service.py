@@ -5,6 +5,7 @@ from app.core.config import settings
 
 
 def _build_prompt(batch: dict[str, Any]) -> str:
+    timestamps = batch.get("hr_data", {}).get("timestamps", [])
     hr_vals = batch.get("hr_data", {}).get("values", [])
     spo2_vals = batch.get("spo2_data", {}).get("values", [])
     temp_vals = batch.get("temp_data", {}).get("values", [])
@@ -20,22 +21,66 @@ def _build_prompt(batch: dict[str, Any]) -> str:
     def mn(vals):
         return min(vals) if vals else 0
 
-    prompt = f"""You are a medical AI assistant generating a patient health report.
-Analyze the following vital signs recorded over the last 20 seconds and produce a JSON response.
+    def trend(vals):
+        clean = [v for v in vals if isinstance(v, (int, float))]
+        if len(clean) < 2:
+            return {"direction": "insufficient-data", "change": 0, "start": clean[0] if clean else 0, "end": clean[-1] if clean else 0}
+        change = round(clean[-1] - clean[0], 1)
+        direction = "stable"
+        threshold = 1 if max(clean) <= 40 else 3
+        if change >= threshold:
+            direction = "increasing"
+        elif change <= -threshold:
+            direction = "decreasing"
+        return {"direction": direction, "change": change, "start": clean[0], "end": clean[-1]}
 
-Data:
-- Heart Rate (bpm): values={hr_vals}, avg={avg(hr_vals)}, min={mn(hr_vals)}, max={mx(hr_vals)}
-- SpO2 (%): values={spo2_vals}, avg={avg(spo2_vals)}, min={mn(spo2_vals)}, max={mx(spo2_vals)}
-- Temperature (°C): values={temp_vals}, avg={avg(temp_vals)}, min={mn(temp_vals)}, max={mx(temp_vals)}
-- Fall events: {sum(fall_vals) if fall_vals else 0} detected
-- Motion states: {motion_vals}
+    def paired_samples(vals):
+        return [{"time": ts, "value": val} for ts, val in zip(timestamps, vals)]
+
+    def motion_distribution(vals):
+        counts: dict[str, int] = {}
+        for value in vals:
+            key = str(value or "Unknown")
+            counts[key] = counts.get(key, 0) + 1
+        return counts
+
+    duration = "unknown"
+    if len(timestamps) >= 2:
+        duration = f"from {timestamps[0]} to {timestamps[-1]}"
+
+    prompt = f"""You are a careful clinical monitoring assistant generating a concise caregiver-facing report from wearable telemetry.
+Analyze patterns over time, not just isolated values. Use the timestamps to describe whether readings increased, decreased, recovered, stayed stable, or briefly spiked during the monitoring window. Do not diagnose disease. If data is noisy or limited, say that confidence is limited and recommend continued monitoring.
+
+Monitoring window: {duration}
+Sample count: {batch.get("batch_size", len(timestamps))}
+
+Timestamped samples:
+- Heart Rate bpm: {paired_samples(hr_vals)}
+- SpO2 percent: {paired_samples(spo2_vals)}
+- Temperature C: {paired_samples(temp_vals)}
+- Fall flags: {paired_samples(fall_vals)}
+- Motion states: {paired_samples(motion_vals)}
+
+Computed statistics:
+- Heart Rate: avg={avg(hr_vals)}, min={mn(hr_vals)}, max={mx(hr_vals)}, trend={trend(hr_vals)}
+- SpO2: avg={avg(spo2_vals)}, min={mn(spo2_vals)}, max={mx(spo2_vals)}, trend={trend(spo2_vals)}
+- Temperature: avg={avg(temp_vals)}, min={mn(temp_vals)}, max={mx(temp_vals)}, trend={trend(temp_vals)}
+- Fall events: {sum(v for v in fall_vals if isinstance(v, (int, float))) if fall_vals else 0}
+- Motion distribution: {motion_distribution(motion_vals)}
+
+Clinical interpretation guidance:
+- Mention meaningful time-based patterns, e.g. "heart rate rose from 72 to 96 bpm during the window" or "SpO2 stayed stable around 98%".
+- Highlight concerning combinations: HR > 110 bpm, SpO2 < 94%, temperature > 37.5 C, any fall flag, or impact/emergency motion.
+- If a value returns toward normal, mention recovery.
+- Recommendations must be practical caregiver actions, not generic filler.
+- Health score should reflect trend stability, oxygenation, fever risk, fall events, and motion context.
 
 Respond ONLY with valid JSON (no markdown, no explanation):
 {{
-  "text_summary": "2-3 sentence paragraph summarizing patient condition",
+  "text_summary": "3-4 sentence paragraph summarizing vitals and time-based trends",
   "health_score": integer 0-100,
   "risk_level": "Low" or "Moderate" or "High",
-  "recommendations": ["recommendation 1", "recommendation 2", "recommendation 3"],
+  "recommendations": ["specific action 1", "specific action 2", "specific action 3"],
   "metrics_summary": {{
     "hr": {{"avg": number, "min": number, "max": number}},
     "spo2": {{"avg": number, "min": number, "max": number}},
@@ -79,10 +124,26 @@ def _fallback_report(batch: dict[str, Any]) -> dict[str, Any]:
     def avg(vals):
         return round(sum(vals) / len(vals), 1) if vals else 0
 
+    def describe_trend(name: str, vals: list, unit: str, threshold: float) -> str:
+        clean = [v for v in vals if isinstance(v, (int, float))]
+        if len(clean) < 2:
+            return f"{name} did not have enough samples for trend analysis."
+        start = clean[0]
+        end = clean[-1]
+        change = round(end - start, 1)
+        if change >= threshold:
+            return f"{name} increased from {start} to {end}{unit} during the monitoring window."
+        if change <= -threshold:
+            return f"{name} decreased from {start} to {end}{unit} during the monitoring window."
+        return f"{name} stayed relatively stable around {avg(clean)}{unit}."
+
     hr_avg = avg(hr_vals)
     spo2_avg = avg(spo2_vals)
     temp_avg = avg(temp_vals)
     fall_count = sum(fall_vals) if fall_vals else 0
+    hr_trend = describe_trend("Heart rate", hr_vals, " bpm", 3)
+    spo2_trend = describe_trend("SpO2", spo2_vals, "%", 2)
+    temp_trend = describe_trend("Temperature", temp_vals, " C", 0.3)
 
     risk = "Low"
     if fall_count > 0 or spo2_avg < 94 or temp_avg > 37.5:
@@ -100,8 +161,8 @@ def _fallback_report(batch: dict[str, Any]) -> dict[str, Any]:
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "text_summary": (
-            f"Patient monitored for 20 seconds. Average heart rate {hr_avg} bpm, "
-            f"SpO2 {spo2_avg}%, temperature {temp_avg}°C. "
+            f"Patient monitored across {batch.get('batch_size', len(hr_vals))} samples. "
+            f"{hr_trend} {spo2_trend} {temp_trend} "
             f"{'No fall events detected.' if fall_count == 0 else f'{fall_count} fall event(s) detected.'}"
         ),
         "health_score": score,

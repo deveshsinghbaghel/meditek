@@ -1,4 +1,5 @@
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel
 
 from app.services.ai_analysis import generate_insight
 from app.services.migrations import ensure_tables
@@ -6,6 +7,10 @@ from app.services.report_generator import report_generator
 from app.services.runtime import runtime
 
 router = APIRouter()
+
+
+class RawVitalsPayload(BaseModel):
+    raw: str
 
 
 @router.get("/reports/status")
@@ -20,6 +25,19 @@ async def get_report_status():
 async def get_vitals_history(limit: int = 60):
     history = list(runtime.history)[-max(1, min(limit, len(runtime.history) or 1)) :]
     return history
+
+
+@router.get("/vitals/source")
+async def get_vitals_source():
+    return runtime.status()
+
+
+@router.post("/vitals/ingest")
+async def ingest_vitals(payload: RawVitalsPayload):
+    try:
+        return await runtime.ingest_raw(payload.raw)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/alerts")

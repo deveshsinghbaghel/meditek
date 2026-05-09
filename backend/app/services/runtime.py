@@ -16,7 +16,15 @@ from app.services.report_generator import report_generator
 def get_data_source() -> DataSource:
     if settings.data_source == "serial":
         return SerialPortReader()
+    if settings.data_source == "manual":
+        return ManualDataSource()
     return FakeDataGenerator()
+
+
+class ManualDataSource(DataSource):
+    async def read(self) -> str:
+        await asyncio.sleep(1)
+        return ""
 
 
 class MonitorRuntime:
@@ -28,6 +36,8 @@ class MonitorRuntime:
         self.subscribers: set[asyncio.Queue[VitalEnvelope]] = set()
         self._task: asyncio.Task[None] | None = None
         self._running = False
+        self.last_raw: str = ""
+        self.last_error: str | None = None
 
     async def start(self) -> None:
         if self._running:
@@ -56,26 +66,59 @@ class MonitorRuntime:
         for queue in list(self.subscribers):
             await queue.put(envelope)
 
+    async def ingest_raw(self, raw: str) -> VitalEnvelope:
+        self.last_raw = raw
+        try:
+            vitals = parse_raw_vitals(raw)
+            self.last_error = None
+        except Exception as exc:
+            self.last_error = f"Could not parse serial line {raw!r}: {exc}"
+            raise
+
+        alerts = evaluate_alerts(vitals)
+        status = derive_status(alerts)
+        self.latest_insight = generate_insight(self.history)
+        envelope = VitalEnvelope(
+            timestamp=datetime.now(timezone.utc),
+            data=vitals,
+            alerts=alerts,
+            status=status,
+            insight=self.latest_insight,
+        )
+        self.history.append(envelope)
+        for alert in alerts:
+            self.alert_log.appendleft(alert)
+        report_generator.record(vitals.model_dump())
+        await self._broadcast(envelope)
+        return envelope
+
     async def _stream(self) -> None:
         while self._running:
             raw = await self.source.read()
-            vitals = parse_raw_vitals(raw)
-            alerts = evaluate_alerts(vitals)
-            status = derive_status(alerts)
-            self.latest_insight = generate_insight(self.history)
-            envelope = VitalEnvelope(
-                timestamp=datetime.now(timezone.utc),
-                data=vitals,
-                alerts=alerts,
-                status=status,
-                insight=self.latest_insight,
-            )
-            self.history.append(envelope)
-            for alert in alerts:
-                self.alert_log.appendleft(alert)
-            report_generator.record(vitals.model_dump())
-            await self._broadcast(envelope)
+            if not raw:
+                await asyncio.sleep(0.1)
+                continue
+            try:
+                await self.ingest_raw(raw)
+            except Exception as exc:
+                await asyncio.sleep(0.1)
+                continue
             await asyncio.sleep(settings.stream_interval_seconds)
+
+    def status(self) -> dict:
+        source_status = None
+        status_fn = getattr(self.source, "status", None)
+        if callable(status_fn):
+            source_status = status_fn()
+        return {
+            "running": self._running,
+            "data_source": settings.data_source,
+            "serial_port": settings.serial_port,
+            "history_size": len(self.history),
+            "last_raw": self.last_raw,
+            "last_error": self.last_error,
+            "source": source_status,
+        }
 
 
 runtime = MonitorRuntime()
