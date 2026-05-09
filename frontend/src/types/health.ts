@@ -5,6 +5,7 @@ export interface VitalReading {
   HR: number;
   SpO2: number;
   Temp: number;
+  Steps: number;
   Fall: number;
   Motion: string;
 }

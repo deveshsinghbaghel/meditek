@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Droplets, Thermometer } from 'lucide-react';
+import { Droplets, Footprints, Thermometer } from 'lucide-react';
 import { HeartIllustration, LungsIllustration } from '../components/dashboard/MedicalIllustrations';
 import { OrganStatusCard } from '../components/dashboard/OrganStatusCard';
 import { TimelineCard } from '../components/dashboard/TimelineCard';
@@ -90,6 +90,7 @@ export function DashboardPage() {
     HR: 0,
     SpO2: 0,
     Temp: 0,
+    Steps: 0,
     Fall: 0,
     Motion: 'Waiting',
   };
@@ -97,10 +98,12 @@ export function DashboardPage() {
   const hrHistory = graphHistory.map((item) => item.data.HR).slice(-30);
   const spo2History = graphHistory.map((item) => item.data.SpO2).slice(-30);
   const tempHistory = graphHistory.map((item) => item.data.Temp).slice(-30);
+  const stepsHistory = graphHistory.map((item) => item.data.Steps).slice(-30);
 
   const heartRate = current.HR;
   const spo2 = current.SpO2;
   const temp = current.Temp;
+  const steps = current.Steps;
   const patientStatus = computeStatus(current);
   const hrTrend = buildTrendPath(hrHistory.length ? hrHistory : [0], 520, 110, 40, 140);
 
@@ -200,6 +203,18 @@ export function DashboardPage() {
               max={40}
               normalMin={36.1}
               normalMax={37.2}
+            />
+            <VitalsCard
+              label="Steps"
+              sublabel="today"
+              value={steps.toLocaleString()}
+              accent="#1A3A6B"
+              valueColor="#1A3A6B"
+              icon={<Footprints size={16} />}
+              series={stepsHistory.length ? stepsHistory : [0]}
+              min={0}
+              max={Math.max(1000, ...stepsHistory, steps || 0)}
+              className="vital-card--steps"
             />
           </div>
 

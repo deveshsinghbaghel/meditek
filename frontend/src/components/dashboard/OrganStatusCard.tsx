@@ -18,7 +18,10 @@ export function OrganStatusCard({ label, status, tone, illustration, className =
       transition={{ duration: 0.35 }}
     >
       <div className="organ-card__art">{illustration}</div>
-      <div className="organ-card__footer">
+      <div
+        className="organ-card__footer"
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+      >
         <span className="organ-card__name">{label}</span>
         <span className="organ-card__status">
           <span className="organ-card__dot" />

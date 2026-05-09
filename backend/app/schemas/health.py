@@ -10,6 +10,7 @@ class VitalReading(BaseModel):
     heart_rate: int = Field(alias="HR")
     spo2: int = Field(alias="SpO2")
     temperature: float = Field(alias="Temp")
+    steps: int = Field(default=0, alias="Steps")
     fall_detected: int = Field(alias="Fall")
     motion: str = Field(alias="Motion")
 

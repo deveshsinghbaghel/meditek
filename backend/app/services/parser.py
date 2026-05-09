@@ -17,7 +17,7 @@ def parse_raw_vitals(payload: str) -> VitalReading:
         key, value = part.split(":", 1)
         key = key.strip()
         value = value.strip()
-        if key in {"HR", "SpO2", "Fall"}:
+        if key in {"HR", "SpO2", "Fall", "Steps"}:
             parsed[key] = int(value)
         elif key == "Temp":
             parsed[key] = float(value)

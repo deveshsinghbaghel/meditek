@@ -200,7 +200,7 @@ body { margin: 0; background: var(--bg-canvas); }
 
 .bottom-stats-row {
   grid-column: 3 / 5; grid-row: 4;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;
 }
 
 .vital-card {
@@ -229,6 +229,9 @@ body { margin: 0; background: var(--bg-canvas); }
   position: absolute; top: 0; right: 0; bottom: 0;
   display: flex; flex-direction: column; justify-content: space-between;
   font-size: 9px; color: var(--text-dim); line-height: 1;
+}
+.vital-card--steps .vital-card__big-num strong {
+  font-size: 24px;
 }
 
 .timeline-card {

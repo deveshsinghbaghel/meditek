@@ -101,7 +101,7 @@ class MonitorRuntime:
         return envelope
 
     async def _emit_no_contact_reading(self) -> None:
-        vitals = parse_raw_vitals("HR:0,SpO2:0,Temp:0,Fall:0,Motion:Waiting")
+        vitals = parse_raw_vitals("HR:0,SpO2:0,Temp:0,Steps:0,Fall:0,Motion:Waiting")
         alerts = evaluate_alerts(vitals)
         status = derive_status(alerts)
         self.latest_insight = generate_insight(self.history)

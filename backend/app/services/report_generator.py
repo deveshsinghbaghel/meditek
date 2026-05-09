@@ -34,6 +34,7 @@ class ReportGenerator:
             "hr": _first_present(vitals, "HR", "heart_rate"),
             "spo2": _first_present(vitals, "SpO2", "spo2"),
             "temp": _first_present(vitals, "Temp", "temperature"),
+            "steps": _first_present(vitals, "Steps", "steps"),
             "fall": _first_present(vitals, "Fall", "fall_detected"),
             "motion": _first_present(vitals, "Motion", "motion"),
         })
@@ -66,6 +67,7 @@ def _build_batch(buffer: list[dict[str, Any]]) -> dict[str, Any]:
         "hr_data": {"timestamps": ts, "values": [r["hr"] for r in buffer]},
         "spo2_data": {"timestamps": ts, "values": [r["spo2"] for r in buffer]},
         "temp_data": {"timestamps": ts, "values": [r["temp"] for r in buffer]},
+        "steps_data": {"timestamps": ts, "values": [r["steps"] for r in buffer]},
         "fall_data": {"timestamps": ts, "values": [r["fall"] for r in buffer]},
         "motion_data": {"timestamps": ts, "values": [r["motion"] for r in buffer]},
         "batch_size": len(buffer),
@@ -85,6 +87,7 @@ def _save_batch(batch: dict[str, Any]) -> None:
         "hr_data": batch["hr_data"],
         "spo2_data": batch["spo2_data"],
         "temp_data": batch["temp_data"],
+        "steps_data": batch["steps_data"],
         "fall_data": batch["fall_data"],
         "motion_data": batch["motion_data"],
         "batch_size": batch["batch_size"],
