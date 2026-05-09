@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { CircleUserRound, FileText, LayoutDashboard } from 'lucide-react';
+import { FileText, LayoutDashboard } from 'lucide-react';
 import { useHealthStore } from '../../store';
 import { useHealthData } from '../../hooks/useHealthData';
 
@@ -60,10 +60,6 @@ export function Layout() {
           <FileText size={22} />
           <span>Reports</span>
         </Link>
-        <span className="mobile-tabbar__item mobile-tabbar__item--placeholder" aria-disabled="true">
-          <CircleUserRound size={22} />
-          <span>Profile</span>
-        </span>
       </nav>
     </div>
   );
