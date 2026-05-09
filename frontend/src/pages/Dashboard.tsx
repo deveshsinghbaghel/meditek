@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Droplets, Footprints, Thermometer } from 'lucide-react';
+import { Bell, Droplets, Footprints, Thermometer } from 'lucide-react';
 import { HeartIllustration, LungsIllustration } from '../components/dashboard/MedicalIllustrations';
 import { OrganStatusCard } from '../components/dashboard/OrganStatusCard';
 import { TimelineCard } from '../components/dashboard/TimelineCard';
@@ -119,6 +119,10 @@ export function DashboardPage() {
             <span className="topbar-brand">MediTrack+</span>
           </div>
           <div className="topbar-status">
+            <button className="topbar-alert-btn" type="button" aria-label="Notifications">
+              <Bell size={22} />
+              <span className="topbar-alert-dot" />
+            </button>
             <span className="live-dot" />
             <span className="live-label">{connectionState === 'live' ? 'Live' : connectionState}</span>
             {clock && <span className="live-time">{clock}</span>}

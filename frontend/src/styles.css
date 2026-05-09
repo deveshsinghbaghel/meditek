@@ -50,6 +50,18 @@ body { margin: 0; background: var(--bg-canvas); }
 }
 
 .topbar-status { display: flex; align-items: center; gap: 8px; }
+.topbar-alert-btn {
+  display: none;
+  width: 40px; height: 40px;
+  align-items: center; justify-content: center;
+  border: 0; background: transparent; border-radius: 999px;
+  color: var(--text); position: relative; padding: 0;
+}
+.topbar-alert-dot {
+  position: absolute; top: 8px; right: 8px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--coral); box-shadow: 0 0 0 2px var(--surface);
+}
 .live-dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--green);
@@ -94,26 +106,28 @@ body { margin: 0; background: var(--bg-canvas); }
 .patient-status-card--alert {
   animation: borderFlash 0.5s ease-in-out 3;
 }
-.ps-top { display: flex; flex-direction: column; gap: 2px; }
+.ps-top { display: flex; flex-direction: column; gap: 1px; }
 .ps-label {
-  font-size: 11px; letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--text-dim);
+  font-size: 10px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: #b8b3aa;
 }
 .ps-badge { font-size: 32px; font-weight: 600; line-height: 1.1; }
-.ps-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+.ps-sub { font-size: 13px; color: #9e9991; margin-top: 0; line-height: 1.32; }
 .ps-pills {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px;
-  margin-top: auto; padding-top: 12px;
+  display: grid; grid-template-columns: repeat(2, minmax(92px, max-content)); gap: 8px;
+  justify-content: start;
+  margin-top: 16px; padding-top: 14px;
+  border-top: 1px solid rgba(180, 178, 169, 0.24);
 }
 .ps-pill {
   background: var(--surface-muted); border-radius: 10px;
-  padding: 8px 10px;
-  display: grid; gap: 2px;
+  padding: 8px 10px 9px;
+  display: grid; gap: 1px;
   align-items: center;
 }
-.ps-pill svg { color: var(--text-muted); }
-.ps-pill-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.06em; }
-.ps-pill-value { font-size: 12px; font-weight: 500; color: var(--text); margin-top: 2px; }
+.ps-pill svg { color: #b8b3aa; }
+.ps-pill-label { font-size: 9px; color: #b8b3aa; letter-spacing: 0.08em; }
+.ps-pill-value { font-size: 12px; font-weight: 500; color: var(--text); margin-top: 1px; line-height: 1.2; }
 .ps-alert-strip {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 12px; margin-top: 10px;
@@ -291,13 +305,7 @@ body { margin: 0; background: var(--bg-canvas); }
 }
 
 @media (max-width: 680px) {
-  .replica-shell { padding: 10px; }
   .replica-grid  { grid-template-columns: 1fr; }
-  .bottom-stats-row { grid-template-columns: 1fr; }
-  .topbar-title { display: none; }
-  .hero-heart-card__ecg { grid-template-columns: 1fr; gap: 8px; }
-  .ecg-wave-wrap { height: 92px; }
-  .ecg-wave { height: 92px; }
 }
 
 /* ─── App Layout (sidebar + main) ─────────────────────────── */
@@ -310,6 +318,7 @@ body { margin: 0; background: var(--bg-canvas); }
   flex: 1;
   overflow-y: auto;
 }
+.mobile-tabbar { display: none; }
 
 /* ─── Sidebar ─────────────────────────────────────────────── */
 .sidebar {
@@ -530,6 +539,167 @@ body { margin: 0; background: var(--bg-canvas); }
 .report-view__recs-list li { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 
 @media (max-width: 680px) {
+  .app-layout { display: block; }
+  .sidebar { display: none; }
+  .app-main {
+    min-height: 100vh;
+    padding-bottom: 116px;
+  }
+  .mobile-tabbar {
+    position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 30;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    padding: 14px; border-radius: 28px; background: rgba(255,255,255,0.94);
+    box-shadow: 0 12px 40px rgba(28, 28, 28, 0.08); backdrop-filter: blur(10px);
+  }
+  .mobile-tabbar__item {
+    min-height: 84px; border-radius: 24px; color: #515151; text-decoration: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    font-size: 14px; font-weight: 500;
+  }
+  .mobile-tabbar__item--active {
+    background: var(--navy); color: #fff;
+  }
+  .mobile-tabbar__item--placeholder { color: #6a6a6a; }
+  .replica-shell { padding: 0; }
+  .replica-surface { padding: 8px 6px 0; }
+  .replica-topbar {
+    margin: 0 0 14px;
+    padding: 18px 18px 20px;
+    background: var(--surface);
+    border-radius: 0 0 20px 20px;
+    box-shadow: var(--shadow);
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+  }
+  .topbar-title,
+  .live-dot,
+  .live-label,
+  .live-time { display: none; }
+  .topbar-patient { gap: 14px; }
+  .topbar-avatar { width: 56px; height: 56px; font-size: 22px; }
+  .topbar-name { font-size: 28px; font-weight: 500; }
+  .topbar-alert-btn { display: inline-flex; }
+  .replica-grid {
+    gap: 14px;
+    padding: 10px 10px 24px;
+  }
+  .patient-status-card,
+  .hero-heart-card,
+  .bottom-organs-row,
+  .bottom-stats-row,
+  .timeline-card {
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+  .patient-status-card {
+    min-height: 328px;
+    padding: 24px 24px 20px;
+    background: linear-gradient(180deg, #fff7f5 0%, #ffffff 62%);
+  }
+  .ps-top { max-width: 54%; gap: 2px; }
+  .ps-label { font-size: 10px; letter-spacing: 0.16em; }
+  .ps-badge { font-size: 58px; }
+  .ps-sub { font-size: 16px; line-height: 1.32; }
+  .ps-pills {
+    margin-top: 18px;
+    padding-top: 14px;
+    max-width: 52%;
+    gap: 10px;
+  }
+  .ps-pill {
+    min-height: 88px;
+    padding: 12px 14px;
+    border-radius: 18px;
+  }
+  .ps-pill-label { font-size: 11px; }
+  .ps-pill-value { font-size: 16px; }
+  .ps-alert-strip { max-width: 52%; }
+  .hero-heart-card {
+    min-height: 320px;
+    border-radius: 24px;
+  }
+  .hero-heart-card__art {
+    position: absolute; top: 22px; right: 16px; bottom: 120px; left: 52%;
+    opacity: 0.82;
+    justify-content: flex-end;
+  }
+  .hero-heart-card .medical-illustration { width: 150px; }
+  .hero-heart-card__ecg {
+    position: absolute; left: 22px; right: 22px; bottom: 22px;
+    grid-template-columns: 1fr; gap: 12px;
+  }
+  .ecg-title { font-size: 20px; }
+  .ecg-hr-num { font-size: 54px; }
+  .ecg-hr-unit { font-size: 20px; }
+  .ecg-range { font-size: 14px; }
+  .ecg-wave-wrap { height: 86px; }
+  .ecg-wave { height: 86px; }
+  .bottom-organs-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .organ-card {
+    min-height: 210px;
+    padding: 18px;
+    border-radius: 22px;
+  }
+  .organ-card__art {
+    align-items: flex-start;
+    min-height: 112px;
+  }
+  .organ-card__art .medical-illustration { width: 78px; max-height: 96px; }
+  .organ-card__footer { margin-top: auto; }
+  .organ-card__name,
+  .organ-card__status { font-size: 16px; }
+  .bottom-stats-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .vital-card {
+    min-height: 248px;
+    padding: 22px 20px 20px;
+    border-radius: 22px;
+  }
+  .vital-card__top {
+    gap: 14px;
+    min-height: 48px;
+  }
+  .vital-card h3 { font-size: 16px; line-height: 1.2; }
+  .vital-card__icon { margin-top: 4px; }
+  .vital-card__sub {
+    font-size: 12px;
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+  .vital-card__big-num {
+    min-height: 58px;
+    margin-top: 18px;
+    gap: 8px;
+  }
+  .vital-card__big-num strong { font-size: 46px; line-height: 0.95; }
+  .vital-card__big-num span { font-size: 17px; line-height: 1.1; }
+  .vital-card__chart { min-height: 92px; margin-top: 18px; }
+  .vital-card__chart svg { width: calc(100% - 30px); height: 88px; }
+  .vital-card__scale { font-size: 10px; color: #c8c2b8; }
+  .timeline-card {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 22px 20px;
+    border-radius: 24px;
+  }
+  .timeline-card__label { font-size: 12px; }
+  .timeline-card__dur { font-size: 28px; }
+  .timeline-card__track-shell {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+  }
+  .timeline-card__range-pill {
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+  }
   .reports-shell { padding: 18px 14px; }
   .reports-header { flex-direction: column; align-items: stretch; gap: 12px; }
   .reports-chat__form { grid-template-columns: 1fr; }

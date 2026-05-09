@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { LayoutDashboard, FileText } from 'lucide-react';
+import { CircleUserRound, FileText, LayoutDashboard } from 'lucide-react';
 import { useHealthStore } from '../../store';
 import { useHealthData } from '../../hooks/useHealthData';
 
@@ -44,6 +44,27 @@ export function Layout() {
       </aside>
 
       <main className="app-main"><Outlet /></main>
+
+      <nav className="mobile-tabbar" aria-label="Mobile navigation">
+        <Link
+          to="/"
+          className={`mobile-tabbar__item${location.pathname === '/' ? ' mobile-tabbar__item--active' : ''}`}
+        >
+          <LayoutDashboard size={22} />
+          <span>Home</span>
+        </Link>
+        <Link
+          to="/reports"
+          className={`mobile-tabbar__item${location.pathname.startsWith('/reports') ? ' mobile-tabbar__item--active' : ''}`}
+        >
+          <FileText size={22} />
+          <span>Reports</span>
+        </Link>
+        <span className="mobile-tabbar__item mobile-tabbar__item--placeholder" aria-disabled="true">
+          <CircleUserRound size={22} />
+          <span>Profile</span>
+        </span>
+      </nav>
     </div>
   );
 }
