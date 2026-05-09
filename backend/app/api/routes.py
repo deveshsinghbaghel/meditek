@@ -2,6 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from app.services.ai_analysis import generate_insight
+from app.services.gemini_service import answer_reports_question
 from app.services.migrations import ensure_tables
 from app.services.report_generator import report_generator
 from app.services.runtime import runtime
@@ -11,6 +12,10 @@ router = APIRouter()
 
 class RawVitalsPayload(BaseModel):
     raw: str
+
+
+class ReportsChatPayload(BaseModel):
+    question: str
 
 
 @router.get("/reports/status")
@@ -82,6 +87,21 @@ async def get_report(report_id: str):
         if not result.data:
             return {"error": "Report not found"}
         return result.data[0]
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.post("/reports/chat")
+async def chat_with_reports(payload: ReportsChatPayload):
+    question = payload.question.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Question is required")
+
+    try:
+        from app.services.supabase_client import table
+        result = table("reports").select("id,generated_at,text_summary,health_score,risk_level,recommendations,metrics_summary").order("generated_at", desc=True).limit(25).execute()
+        reports = result.data or []
+        return await answer_reports_question(question, reports)
     except Exception as e:
         return {"error": str(e)}
 

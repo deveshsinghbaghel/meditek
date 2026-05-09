@@ -34,3 +34,24 @@ export interface VitalEnvelope {
   status: Status;
   insight?: Insight | null;
 }
+
+export interface ReportSummary {
+  id: string;
+  generated_at: string;
+  text_summary: string;
+  health_score: number;
+  risk_level: string;
+  recommendations: string[];
+  metrics_summary?: {
+    hr?: { avg: number; min: number; max: number };
+    spo2?: { avg: number; min: number; max: number };
+    temp?: { avg: number; min: number; max: number };
+    fall_count?: number;
+    motion_distribution?: Record<string, number>;
+  };
+}
+
+export interface ReportChatResponse {
+  answer: string;
+  report_ids: string[];
+}

@@ -417,6 +417,30 @@ body { margin: 0; background: var(--bg-canvas); }
 .reports-empty__icon { color: var(--text-dim); margin: 0 auto 12px; }
 .reports-empty__text { font-size: 15px; font-weight: 500; color: var(--text); margin: 0 0 6px; }
 .reports-empty__sub { font-size: 13px; color: var(--text-muted); margin: 0; }
+.reports-chat {
+  background: var(--surface); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px;
+}
+.reports-chat__header { margin-bottom: 14px; }
+.reports-chat__title { margin: 0 0 4px; font-size: 18px; }
+.reports-chat__sub { margin: 0; font-size: 13px; color: var(--text-muted); }
+.reports-chat__form { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+.reports-chat__input {
+  width: 100%; border: 1px solid var(--surface-track); border-radius: 10px;
+  padding: 12px 14px; font-size: 14px; background: #fff; color: var(--text);
+}
+.reports-chat__input:focus {
+  outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px rgba(26, 58, 107, 0.08);
+}
+.reports-chat__button {
+  border: none; border-radius: 10px; background: var(--coral); color: #fff;
+  padding: 0 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.reports-chat__button:disabled { opacity: 0.5; cursor: not-allowed; }
+.reports-chat__answer {
+  margin-top: 14px; padding: 14px; border-radius: 12px;
+  background: var(--surface-muted); font-size: 14px; line-height: 1.6; color: var(--text);
+}
 .reports-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -501,3 +525,12 @@ body { margin: 0; background: var(--bg-canvas); }
   display: flex; flex-direction: column; gap: 6px;
 }
 .report-view__recs-list li { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+@media (max-width: 680px) {
+  .reports-shell { padding: 18px 14px; }
+  .reports-header { flex-direction: column; align-items: stretch; gap: 12px; }
+  .reports-chat__form { grid-template-columns: 1fr; }
+  .report-view { padding: 20px; }
+  .report-view__header { flex-direction: column; gap: 16px; }
+  .report-view__metrics { grid-template-columns: 1fr 1fr; }
+}

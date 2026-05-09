@@ -1,6 +1,7 @@
 import asyncio
 from collections import deque
 from datetime import datetime, timezone
+import time
 
 from app.core.config import settings
 from app.data_sources.base import DataSource
@@ -11,6 +12,9 @@ from app.services.ai_analysis import generate_insight
 from app.services.alerts import derive_status, evaluate_alerts
 from app.services.parser import parse_raw_vitals
 from app.services.report_generator import report_generator
+
+
+NO_CONTACT_GRACE_SECONDS = 3.0
 
 
 def get_data_source() -> DataSource:
@@ -38,6 +42,8 @@ class MonitorRuntime:
         self._running = False
         self.last_raw: str = ""
         self.last_error: str | None = None
+        self._last_ingest_at = 0.0
+        self._no_contact_emitted = False
 
     async def start(self) -> None:
         if self._running:
@@ -89,13 +95,40 @@ class MonitorRuntime:
         for alert in alerts:
             self.alert_log.appendleft(alert)
         report_generator.record(vitals.model_dump())
+        self._last_ingest_at = time.monotonic()
+        self._no_contact_emitted = False
         await self._broadcast(envelope)
         return envelope
+
+    async def _emit_no_contact_reading(self) -> None:
+        vitals = parse_raw_vitals("HR:0,SpO2:0,Temp:0,Fall:0,Motion:Waiting")
+        alerts = evaluate_alerts(vitals)
+        status = derive_status(alerts)
+        self.latest_insight = generate_insight(self.history)
+        envelope = VitalEnvelope(
+            timestamp=datetime.now(timezone.utc),
+            data=vitals,
+            alerts=alerts,
+            status=status,
+            insight=self.latest_insight,
+        )
+        self.history.append(envelope)
+        report_generator.record(vitals.model_dump())
+        self._no_contact_emitted = True
+        await self._broadcast(envelope)
 
     async def _stream(self) -> None:
         while self._running:
             raw = await self.source.read()
             if not raw:
+                if (
+                    settings.data_source == "serial"
+                    and self.history
+                    and not self._no_contact_emitted
+                    and self._last_ingest_at > 0
+                    and (time.monotonic() - self._last_ingest_at) >= NO_CONTACT_GRACE_SECONDS
+                ):
+                    await self._emit_no_contact_reading()
                 await asyncio.sleep(0.1)
                 continue
             try:

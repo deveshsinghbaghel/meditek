@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Activity, Droplets, Thermometer, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { ReportSummary } from './Reports';
+import { fetchReport } from '../services/api';
+import { ReportSummary } from '../types/health';
 
 export function ReportViewPage() {
   const { id } = useParams<{ id: string }>();
@@ -11,15 +12,8 @@ export function ReportViewPage() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`/api/reports/${id}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          setReport(null);
-        } else {
-          setReport(data);
-        }
-      })
+    fetchReport(id)
+      .then((data) => setReport(data))
       .catch(() => setReport(null))
       .finally(() => setLoading(false));
   }, [id]);

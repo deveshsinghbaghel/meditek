@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { ReportSummary } from '../pages/Reports';
+import { askReportsQuestion, fetchReports as fetchReportsRequest } from '../services/api';
+import { ReportChatResponse, ReportSummary } from '../types/health';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
@@ -9,19 +10,15 @@ export function useReports() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bufferCount, setBufferCount] = useState(0);
+  const [chatLoading, setChatLoading] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchReports = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/reports/history`);
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setReports(data);
-        setError(null);
-      } else if (data.error) {
-        setError('Could not load reports.');
-      }
+      const data = await fetchReportsRequest();
+      setReports(data);
+      setError(null);
     } catch {
       setError('Could not load reports.');
     } finally {
@@ -66,9 +63,19 @@ export function useReports() {
     }
   }, [fetchReports]);
 
+  const askQuestion = useCallback(async (question: string): Promise<ReportChatResponse> => {
+    setChatLoading(true);
+    try {
+      setError(null);
+      return await askReportsQuestion(question);
+    } finally {
+      setChatLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
 
-  return { reports, loading, generating, error, generate, fetchReports, bufferCount };
+  return { reports, loading, generating, error, generate, fetchReports, bufferCount, askQuestion, chatLoading };
 }

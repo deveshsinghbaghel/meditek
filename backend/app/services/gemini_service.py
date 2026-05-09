@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -98,12 +99,11 @@ async def generate_report_with_gemini(batch: dict[str, Any]) -> dict[str, Any]:
 
     import google.generativeai as genai
     genai.configure(api_key=settings.gemini_api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
 
     prompt = _build_prompt(batch)
     try:
         response = await model.generate_content_async(prompt)
-        import json
         raw = response.text.strip()
         if raw.startswith("```"):
             raw = raw[raw.index("{"): raw.rindex("}") + 1]
@@ -180,3 +180,101 @@ def _fallback_report(batch: dict[str, Any]) -> dict[str, Any]:
             "motion_distribution": motion_counts,
         },
     }
+
+
+def _serialize_report_for_chat(report: dict[str, Any]) -> dict[str, Any]:
+    metrics = report.get("metrics_summary") or {}
+    return {
+        "id": report.get("id"),
+        "generated_at": report.get("generated_at"),
+        "risk_level": report.get("risk_level"),
+        "health_score": report.get("health_score"),
+        "text_summary": report.get("text_summary"),
+        "recommendations": report.get("recommendations") or [],
+        "metrics_summary": {
+            "hr": metrics.get("hr"),
+            "spo2": metrics.get("spo2"),
+            "temp": metrics.get("temp"),
+            "fall_count": metrics.get("fall_count"),
+            "motion_distribution": metrics.get("motion_distribution"),
+        },
+    }
+
+
+def _fallback_report_chat(question: str, reports: list[dict[str, Any]]) -> dict[str, Any]:
+    if not reports:
+        return {
+            "answer": "No reports are available yet. Generate at least one report, then ask about trends, risks, vitals, or recommendations.",
+            "report_ids": [],
+        }
+
+    report_ids = [str(report.get("id")) for report in reports if report.get("id")]
+    latest = reports[0]
+    risk_counts: dict[str, int] = {}
+    for report in reports:
+        risk = str(report.get("risk_level") or "Unknown")
+        risk_counts[risk] = risk_counts.get(risk, 0) + 1
+
+    q = question.lower()
+    if "fall" in q:
+        total_falls = sum((report.get("metrics_summary") or {}).get("fall_count") or 0 for report in reports)
+        return {
+            "answer": f"Across {len(reports)} reports, I found {total_falls} total recorded fall events. The latest report is marked {latest.get('risk_level', 'Unknown')} risk with a health score of {latest.get('health_score', 'N/A')}.",
+            "report_ids": report_ids,
+        }
+
+    latest_metrics = latest.get("metrics_summary") or {}
+    latest_hr = latest_metrics.get("hr") or {}
+    latest_spo2 = latest_metrics.get("spo2") or {}
+    latest_temp = latest_metrics.get("temp") or {}
+    recs = latest.get("recommendations") or []
+    recommendation_text = f" Latest recommendations: {'; '.join(recs[:3])}." if recs else ""
+    return {
+        "answer": (
+            f"I found {len(reports)} saved reports. Risk levels seen: "
+            f"{', '.join(f'{level}={count}' for level, count in risk_counts.items())}. "
+            f"The latest report has score {latest.get('health_score', 'N/A')} and risk {latest.get('risk_level', 'Unknown')}. "
+            f"Its average vitals were HR {latest_hr.get('avg', 'N/A')} bpm, SpO2 {latest_spo2.get('avg', 'N/A')}%, and temperature {latest_temp.get('avg', 'N/A')} C."
+            f"{recommendation_text}"
+        ),
+        "report_ids": report_ids,
+    }
+
+
+async def answer_reports_question(question: str, reports: list[dict[str, Any]]) -> dict[str, Any]:
+    if not reports or not settings.gemini_api_key:
+        return _fallback_report_chat(question, reports)
+
+    import google.generativeai as genai
+
+    genai.configure(api_key=settings.gemini_api_key)
+    model = genai.GenerativeModel("gemini-2.5-flash")
+    prompt = f"""You answer questions about a patient's saved monitoring reports.
+Use only the provided report data. If the answer is not supported by the reports, say so clearly.
+Be concise and caregiver-friendly. Do not diagnose disease.
+
+User question:
+{question}
+
+Reports data (newest first):
+{json.dumps([_serialize_report_for_chat(report) for report in reports], ensure_ascii=True)}
+
+Respond ONLY with valid JSON:
+{{
+  "answer": "short factual answer grounded in the reports",
+  "report_ids": ["relevant report id 1", "relevant report id 2"]
+}}"""
+    try:
+        response = await model.generate_content_async(prompt)
+        raw = response.text.strip()
+        if raw.startswith("```"):
+            raw = raw[raw.index("{"): raw.rindex("}") + 1]
+        data = json.loads(raw)
+        answer = str(data.get("answer") or "").strip()
+        ids = data.get("report_ids") if isinstance(data.get("report_ids"), list) else []
+        return {
+            "answer": answer or _fallback_report_chat(question, reports)["answer"],
+            "report_ids": [str(item) for item in ids],
+        }
+    except Exception:
+        return _fallback_report_chat(question, reports)

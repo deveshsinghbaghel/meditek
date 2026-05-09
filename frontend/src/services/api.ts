@@ -1,4 +1,4 @@
-import { AlertItem, Insight, VitalEnvelope } from '../types/health';
+import { AlertItem, Insight, ReportChatResponse, ReportSummary, VitalEnvelope } from '../types/health';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
@@ -29,4 +29,20 @@ export function fetchLatestInsight(): Promise<Insight> {
 
 export function triggerInsight(): Promise<Insight> {
   return request<Insight>('/ai/analyze', { method: 'POST' });
+}
+
+export function fetchReports(): Promise<ReportSummary[]> {
+  return request<ReportSummary[]>('/reports/history');
+}
+
+export function fetchReport(reportId: string): Promise<ReportSummary> {
+  return request<ReportSummary>(`/reports/${reportId}`);
+}
+
+export function askReportsQuestion(question: string): Promise<ReportChatResponse> {
+  return request<ReportChatResponse>('/reports/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question }),
+  });
 }

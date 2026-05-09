@@ -8,16 +8,6 @@ import { VitalsCard } from '../components/dashboard/VitalsCard';
 import { PatientStatusCard, PatientStatus } from '../components/dashboard/PatientStatusCard';
 import { useHealthStore } from '../store';
 import { VitalReading } from '../types/health';
-
-const EMPTY_VITALS: VitalReading = {
-  HR: 0,
-  SpO2: 0,
-  Temp: 0,
-  Fall: 0,
-  Motion: 'Waiting',
-};
-
-const STALE_READING_MS = 3000;
 const GRAPH_WINDOW_MS = 30000;
 
 function clamp(value: number, min: number, max: number) {
@@ -96,14 +86,17 @@ export function DashboardPage() {
     return () => clearInterval(id);
   }, []);
 
-  const latestTimestamp = currentVitals ? Date.parse(currentVitals.timestamp) : 0;
-  const hasFreshReading = latestTimestamp > 0 && now - latestTimestamp <= STALE_READING_MS;
-  const current = hasFreshReading ? currentVitals?.data ?? EMPTY_VITALS : EMPTY_VITALS;
+  const current: VitalReading = currentVitals?.data ?? historicalData[historicalData.length - 1]?.data ?? {
+    HR: 0,
+    SpO2: 0,
+    Temp: 0,
+    Fall: 0,
+    Motion: 'Waiting',
+  };
   const graphHistory = historicalData.filter((item) => now - Date.parse(item.timestamp) <= GRAPH_WINDOW_MS);
-  const graphReadings = hasFreshReading ? graphHistory : [...graphHistory, { timestamp: new Date(now).toISOString(), data: EMPTY_VITALS }];
-  const hrHistory = graphReadings.map((item) => item.data.HR).slice(-30);
-  const spo2History = graphReadings.map((item) => item.data.SpO2).slice(-30);
-  const tempHistory = graphReadings.map((item) => item.data.Temp).slice(-30);
+  const hrHistory = graphHistory.map((item) => item.data.HR).slice(-30);
+  const spo2History = graphHistory.map((item) => item.data.SpO2).slice(-30);
+  const tempHistory = graphHistory.map((item) => item.data.Temp).slice(-30);
 
   const heartRate = current.HR;
   const spo2 = current.SpO2;

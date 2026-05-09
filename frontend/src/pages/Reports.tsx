@@ -1,10 +1,29 @@
 import { Activity } from 'lucide-react';
+import { FormEvent, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useReports } from '../hooks/useReports';
+import { ReportSummary } from '../types/health';
 
 export function ReportsPage() {
-  const { reports, loading, generating, error, generate, bufferCount } = useReports();
+  const { reports, generating, error, generate, bufferCount, askQuestion, chatLoading } = useReports();
+  const [question, setQuestion] = useState('');
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatAnswer, setChatAnswer] = useState<string | null>(null);
+
+  async function handleAsk(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextQuestion = question.trim();
+    if (!nextQuestion) return;
+
+    try {
+      setChatError(null);
+      const response = await askQuestion(nextQuestion);
+      setChatAnswer(response.answer);
+    } catch (err) {
+      setChatError(err instanceof Error ? err.message : 'Failed to ask question about reports.');
+    }
+  }
 
   return (
     <main className="reports-shell">
@@ -21,6 +40,26 @@ export function ReportsPage() {
         </div>
 
         {error && <div className="reports-error">{error}</div>}
+
+        <section className="reports-chat">
+          <div className="reports-chat__header">
+            <h2 className="reports-chat__title">Ask Across All Reports</h2>
+            <p className="reports-chat__sub">Uses your Gemini API to answer questions from every saved report.</p>
+          </div>
+          <form className="reports-chat__form" onSubmit={handleAsk}>
+            <input
+              className="reports-chat__input"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="Ask about trends, falls, risk, oxygen, temperature, or recommendations"
+            />
+            <button className="reports-chat__button" type="submit" disabled={chatLoading || reports.length === 0}>
+              {chatLoading ? 'Asking...' : 'Ask'}
+            </button>
+          </form>
+          {chatError && <div className="reports-error">{chatError}</div>}
+          {chatAnswer && <div className="reports-chat__answer">{chatAnswer}</div>}
+        </section>
 
         {reports.length === 0 ? (
           <div className="reports-empty">
@@ -67,20 +106,4 @@ function ReportCard({ report, index }: { report: ReportSummary; index: number })
       </Link>
     </motion.div>
   );
-}
-
-export interface ReportSummary {
-  id: string;
-  generated_at: string;
-  text_summary: string;
-  health_score: number;
-  risk_level: string;
-  recommendations: string[];
-  metrics_summary?: {
-    hr?: { avg: number; min: number; max: number };
-    spo2?: { avg: number; min: number; max: number };
-    temp?: { avg: number; min: number; max: number };
-    fall_count?: number;
-    motion_distribution?: Record<string, number>;
-  };
 }
